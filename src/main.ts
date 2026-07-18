@@ -11,7 +11,10 @@ async function start() {
     throw new Error('Could not find the #app element')
   }
 
-  // Three.js scene
+  /*
+   * Three.js scene
+   */
+
   const scene = new THREE.Scene()
   scene.background = new THREE.Color('#1a1a1a')
 
@@ -28,20 +31,50 @@ async function start() {
     antialias: true,
   })
 
-  renderer.setSize(window.innerWidth, window.innerHeight)
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  renderer.setSize(
+    window.innerWidth,
+    window.innerHeight
+  )
+
+  renderer.setPixelRatio(
+    Math.min(window.devicePixelRatio, 2)
+  )
 
   app.appendChild(renderer.domElement)
 
-  // Lighting
-  const ambientLight = new THREE.AmbientLight(0xffffff, 1.5)
+  /*
+   * Lighting
+   */
+
+  const ambientLight = new THREE.AmbientLight(
+    0xffffff,
+    1.5
+  )
+
   scene.add(ambientLight)
 
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 3)
+  const directionalLight = new THREE.DirectionalLight(
+    0xffffff,
+    3
+  )
+
   directionalLight.position.set(3, 4, 5)
+
   scene.add(directionalLight)
 
-  // Physics world
+  const fillLight = new THREE.DirectionalLight(
+    0x8ea7ff,
+    1.5
+  )
+
+  fillLight.position.set(-4, 1, 2)
+
+  scene.add(fillLight)
+
+  /*
+   * Rapier physics world
+   */
+
   const gravity = {
     x: 0,
     y: -9.81,
@@ -50,8 +83,15 @@ async function start() {
 
   const world = new RAPIER.World(gravity)
 
-  // Visible badge
-  const badgeGeometry = new THREE.BoxGeometry(2.1, 2.8, 0.12)
+  /*
+   * Visible badge
+   */
+
+  const badgeGeometry = new THREE.BoxGeometry(
+    2.1,
+    2.8,
+    0.12
+  )
 
   const badgeMaterial = new THREE.MeshStandardMaterial({
     color: 0xdddddd,
@@ -66,70 +106,108 @@ async function start() {
 
   scene.add(badge)
 
-  // Physics badge
-  const badgeBodyDescription = RAPIER.RigidBodyDesc.dynamic()
-    .setTranslation(0, 2, 0)
-    .setRotation({
-      x: 0,
-      y: 0,
-      z: 0.15,
-      w: 0.9887,
-    })
+  /*
+   * Badge physics body
+   */
+
+  const badgeBodyDescription =
+    RAPIER.RigidBodyDesc.dynamic()
+      .setTranslation(0.65, 1.85, 0)
+      .setRotation({
+        x: 0,
+        y: 0,
+        z: 0.12,
+        w: 0.9928,
+      })
+      .setLinearDamping(0.4)
+      .setAngularDamping(0.8)
 
   const badgeBody = world.createRigidBody(
     badgeBodyDescription
   )
 
-  const badgeCollider = RAPIER.ColliderDesc.cuboid(
-    1.05,
-    1.4,
-    0.06
-  )
-    .setRestitution(0.25)
-    .setFriction(0.7)
+  const badgeColliderDescription =
+    RAPIER.ColliderDesc.cuboid(
+      1.05,
+      1.4,
+      0.06
+    )
+      .setRestitution(0.1)
+      .setFriction(0.7)
 
   world.createCollider(
-    badgeCollider,
+    badgeColliderDescription,
     badgeBody
   )
 
-  // Visible floor
-  const floorGeometry = new THREE.BoxGeometry(10, 0.2, 5)
+  /*
+   * Fixed anchor
+   */
 
-  const floorMaterial = new THREE.MeshStandardMaterial({
-    color: 0x444444,
-    roughness: 0.8,
+  const anchorBodyDescription =
+    RAPIER.RigidBodyDesc.fixed()
+      .setTranslation(0, 3.4, 0)
+
+  const anchorBody = world.createRigidBody(
+    anchorBodyDescription
+  )
+
+  /*
+   * Joint connecting badge to anchor
+   */
+
+  const jointData = RAPIER.JointData.spherical(
+    {
+      x: 0,
+      y: 0,
+      z: 0,
+    },
+    {
+      x: 0,
+      y: 1.4,
+      z: 0,
+    }
+  )
+
+  world.createImpulseJoint(
+    jointData,
+    anchorBody,
+    badgeBody,
+    true
+  )
+
+  /*
+   * Temporary visible attachment line
+   */
+
+  const lineMaterial = new THREE.LineBasicMaterial({
+    color: 0x777777,
   })
 
-  const floor = new THREE.Mesh(
-    floorGeometry,
-    floorMaterial
+  const lineGeometry = new THREE.BufferGeometry()
+
+  const linePositions = new Float32Array(6)
+
+  lineGeometry.setAttribute(
+    'position',
+    new THREE.BufferAttribute(
+      linePositions,
+      3
+    )
   )
 
-  floor.position.y = -2.5
-  scene.add(floor)
-
-  // Physics floor
-  const floorBodyDescription = RAPIER.RigidBodyDesc.fixed()
-    .setTranslation(0, -2.5, 0)
-
-  const floorBody = world.createRigidBody(
-    floorBodyDescription
+  const attachmentLine = new THREE.Line(
+    lineGeometry,
+    lineMaterial
   )
 
-  const floorCollider = RAPIER.ColliderDesc.cuboid(
-    5,
-    0.1,
-    2.5
-  )
+  scene.add(attachmentLine)
 
-  world.createCollider(
-    floorCollider,
-    floorBody
-  )
+  /*
+   * Resize handling
+   */
 
-  // Resize handling
-  window.addEventListener('resize', () => {
+  function handleResize() {
     camera.aspect =
       window.innerWidth / window.innerHeight
 
@@ -143,9 +221,17 @@ async function start() {
     renderer.setPixelRatio(
       Math.min(window.devicePixelRatio, 2)
     )
-  })
+  }
 
-  // Animation
+  window.addEventListener(
+    'resize',
+    handleResize
+  )
+
+  /*
+   * Animation
+   */
+
   function animate() {
     world.step()
 
@@ -165,12 +251,54 @@ async function start() {
       rotation.w
     )
 
-    renderer.render(scene, camera)
+    const badgeTop = new THREE.Vector3(
+      0,
+      1.4,
+      0
+    )
+
+    badgeTop.applyQuaternion(
+      badge.quaternion
+    )
+
+    badgeTop.add(
+      badge.position
+    )
+
+    const positions =
+      attachmentLine.geometry.attributes
+        .position as THREE.BufferAttribute
+
+    positions.setXYZ(
+      0,
+      0,
+      3.4,
+      0
+    )
+
+    positions.setXYZ(
+      1,
+      badgeTop.x,
+      badgeTop.y,
+      badgeTop.z
+    )
+
+    positions.needsUpdate = true
+
+    renderer.render(
+      scene,
+      camera
+    )
   }
 
-  renderer.setAnimationLoop(animate)
+  renderer.setAnimationLoop(
+    animate
+  )
 }
 
 start().catch(error => {
-  console.error('Could not start the physics scene:', error)
+  console.error(
+    'Could not start the physics scene:',
+    error
+  )
 })
