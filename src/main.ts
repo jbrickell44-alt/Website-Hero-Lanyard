@@ -5,7 +5,8 @@ import './style.css'
 async function start() {
   await RAPIER.init()
 
-  const app = document.querySelector<HTMLDivElement>('#app')
+  const app =
+    document.querySelector<HTMLDivElement>('#app')
 
   if (!app) {
     throw new Error('Could not find the #app element')
@@ -38,20 +39,23 @@ async function start() {
    */
 
   const scene = new THREE.Scene()
+
   scene.background = new THREE.Color('#1a1a1a')
 
-  const camera = new THREE.PerspectiveCamera(
-    35,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    100
-  )
+  const camera =
+    new THREE.PerspectiveCamera(
+      35,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      100
+    )
 
   camera.position.set(0, 0, 8)
 
-  const renderer = new THREE.WebGLRenderer({
-    antialias: true,
-  })
+  const renderer =
+    new THREE.WebGLRenderer({
+      antialias: true,
+    })
 
   renderer.setSize(
     window.innerWidth,
@@ -62,7 +66,8 @@ async function start() {
     Math.min(window.devicePixelRatio, 2)
   )
 
-  renderer.outputColorSpace = THREE.SRGBColorSpace
+  renderer.outputColorSpace =
+    THREE.SRGBColorSpace
 
   renderer.domElement.style.cursor = 'grab'
   renderer.domElement.style.touchAction = 'none'
@@ -73,26 +78,29 @@ async function start() {
    * Lighting
    */
 
-  const ambientLight = new THREE.AmbientLight(
-    0xffffff,
-    1.5
-  )
+  const ambientLight =
+    new THREE.AmbientLight(
+      0xffffff,
+      1.5
+    )
 
   scene.add(ambientLight)
 
-  const directionalLight = new THREE.DirectionalLight(
-    0xffffff,
-    3
-  )
+  const directionalLight =
+    new THREE.DirectionalLight(
+      0xffffff,
+      3
+    )
 
   directionalLight.position.set(3, 4, 5)
 
   scene.add(directionalLight)
 
-  const fillLight = new THREE.DirectionalLight(
-    0x8ea7ff,
-    1.4
-  )
+  const fillLight =
+    new THREE.DirectionalLight(
+      0x8ea7ff,
+      1.4
+    )
 
   fillLight.position.set(-4, 1, 2)
 
@@ -102,11 +110,12 @@ async function start() {
    * Physics world
    */
 
-  const world = new RAPIER.World({
-    x: 0,
-    y: -9.81,
-    z: 0,
-  })
+  const world =
+    new RAPIER.World({
+      x: 0,
+      y: -9.81,
+      z: 0,
+    })
 
   world.timestep = FIXED_TIMESTEP
 
@@ -114,10 +123,16 @@ async function start() {
    * Fixed anchor
    */
 
-  const anchorBody = world.createRigidBody(
-    RAPIER.RigidBodyDesc.fixed()
-      .setTranslation(0, ANCHOR_Y, 0)
-  )
+  const anchorBody =
+    world.createRigidBody(
+      RAPIER.RigidBodyDesc
+        .fixed()
+        .setTranslation(
+          0,
+          ANCHOR_Y,
+          0
+        )
+    )
 
   /*
    * Physics lanyard nodes
@@ -134,15 +149,21 @@ async function start() {
       ANCHOR_Y -
       SEGMENT_LENGTH * (index + 1)
 
-    const ropeBody = world.createRigidBody(
-      RAPIER.RigidBodyDesc.dynamic()
-        .setTranslation(0, bodyY, 0)
-        .setAdditionalMass(0.035)
-        .setLinearDamping(0.7)
-        .setAngularDamping(1.2)
-        .setCanSleep(false)
-        .setAdditionalSolverIterations(8)
-    )
+    const ropeBody =
+      world.createRigidBody(
+        RAPIER.RigidBodyDesc
+          .dynamic()
+          .setTranslation(
+            0,
+            bodyY,
+            0
+          )
+          .setAdditionalMass(0.035)
+          .setLinearDamping(0.7)
+          .setAngularDamping(1.2)
+          .setCanSleep(false)
+          .setAdditionalSolverIterations(8)
+      )
 
     ropeBodies.push(ropeBody)
 
@@ -151,19 +172,20 @@ async function start() {
         ? anchorBody
         : ropeBodies[index - 1]
 
-    const ropeJoint = RAPIER.JointData.rope(
-      SEGMENT_LENGTH,
-      {
-        x: 0,
-        y: 0,
-        z: 0,
-      },
-      {
-        x: 0,
-        y: 0,
-        z: 0,
-      }
-    )
+    const ropeJoint =
+      RAPIER.JointData.rope(
+        SEGMENT_LENGTH,
+        {
+          x: 0,
+          y: 0,
+          z: 0,
+        },
+        {
+          x: 0,
+          y: 0,
+          z: 0,
+        }
+      )
 
     world.createImpulseJoint(
       ropeJoint,
@@ -174,26 +196,85 @@ async function start() {
   }
 
   /*
+   * Badge textures
+   */
+
+  const textureLoader =
+    new THREE.TextureLoader()
+
+  const [
+    badgeFrontTexture,
+    badgeBackTexture,
+  ] = await Promise.all([
+    textureLoader.loadAsync(
+      '/textures/Front_V1.jpg'
+    ),
+    textureLoader.loadAsync(
+      '/textures/Back_V1.jpg'
+    ),
+  ])
+
+  badgeFrontTexture.colorSpace =
+    THREE.SRGBColorSpace
+
+  badgeBackTexture.colorSpace =
+    THREE.SRGBColorSpace
+
+  const maxAnisotropy =
+    renderer.capabilities.getMaxAnisotropy()
+
+  badgeFrontTexture.anisotropy =
+    maxAnisotropy
+
+  badgeBackTexture.anisotropy =
+    maxAnisotropy
+
+  /*
    * Visible badge
    */
 
-  const badgeGeometry = new THREE.BoxGeometry(
-    2.1,
-    2.8,
-    0.12
-  )
+  const badgeGeometry =
+    new THREE.BoxGeometry(
+      2.1,
+      2.8,
+      0.12
+    )
 
-  const badgeMaterial =
+  const badgeSideMaterial =
     new THREE.MeshStandardMaterial({
-      color: 0xdddddd,
-      roughness: 0.45,
+      color: 0x202020,
+      roughness: 0.55,
       metalness: 0.05,
     })
 
-  const badge = new THREE.Mesh(
-    badgeGeometry,
-    badgeMaterial
-  )
+  const badgeFrontMaterial =
+    new THREE.MeshStandardMaterial({
+      map: badgeFrontTexture,
+      roughness: 0.42,
+      metalness: 0,
+    })
+
+  const badgeBackMaterial =
+    new THREE.MeshStandardMaterial({
+      map: badgeBackTexture,
+      roughness: 0.42,
+      metalness: 0,
+    })
+
+  const badgeMaterials = [
+    badgeSideMaterial,
+    badgeSideMaterial,
+    badgeSideMaterial,
+    badgeSideMaterial,
+    badgeFrontMaterial,
+    badgeBackMaterial,
+  ]
+
+  const badge =
+    new THREE.Mesh(
+      badgeGeometry,
+      badgeMaterials
+    )
 
   scene.add(badge)
 
@@ -207,30 +288,33 @@ async function start() {
     BADGE_LINK_LENGTH -
     1.4
 
-  const badgeBody = world.createRigidBody(
-    RAPIER.RigidBodyDesc.dynamic()
-      .setTranslation(
-        0.35,
-        badgeStartY,
-        0
-      )
-      .setRotation({
-        x: 0,
-        y: 0,
-        z: 0.08,
-        w: 0.9968,
-      })
-      .setLinearDamping(0.45)
-      .setAngularDamping(0.9)
-      .setAdditionalSolverIterations(12)
-  )
+  const badgeBody =
+    world.createRigidBody(
+      RAPIER.RigidBodyDesc
+        .dynamic()
+        .setTranslation(
+          0.35,
+          badgeStartY,
+          0
+        )
+        .setRotation({
+          x: 0,
+          y: 0,
+          z: 0.08,
+          w: 0.9968,
+        })
+        .setLinearDamping(0.45)
+        .setAngularDamping(0.9)
+        .setAdditionalSolverIterations(12)
+    )
 
   const badgeCollider =
-    RAPIER.ColliderDesc.cuboid(
-      1.05,
-      1.4,
-      0.06
-    )
+    RAPIER.ColliderDesc
+      .cuboid(
+        1.05,
+        1.4,
+        0.06
+      )
       .setRestitution(0.05)
       .setFriction(0.7)
       .setDensity(0.8)
@@ -247,25 +331,49 @@ async function start() {
   const finalRopeBody =
     ropeBodies[ropeBodies.length - 1]
 
-  const badgeJoint = RAPIER.JointData.rope(
-    BADGE_LINK_LENGTH,
-    {
-      x: 0,
-      y: 0,
-      z: 0,
-    },
-    {
-      x: 0,
-      y: 1.4,
-      z: 0,
-    }
-  )
+  const badgeJoint =
+    RAPIER.JointData.rope(
+      BADGE_LINK_LENGTH,
+      {
+        x: 0,
+        y: 0,
+        z: 0,
+      },
+      {
+        x: 0,
+        y: 1.4,
+        z: 0,
+      }
+    )
 
   world.createImpulseJoint(
     badgeJoint,
     finalRopeBody,
     badgeBody,
     true
+  )
+
+  /*
+   * Initial badge position
+   */
+
+  const initialBadgePosition =
+    badgeBody.translation()
+
+  const initialBadgeRotation =
+    badgeBody.rotation()
+
+  badge.position.set(
+    initialBadgePosition.x,
+    initialBadgePosition.y,
+    initialBadgePosition.z
+  )
+
+  badge.quaternion.set(
+    initialBadgeRotation.x,
+    initialBadgeRotation.y,
+    initialBadgeRotation.z,
+    initialBadgeRotation.w
   )
 
   /*
@@ -288,7 +396,10 @@ async function start() {
     )
 
     ropeBodies.forEach(
-      (ropeBody, index) => {
+      (
+        ropeBody,
+        index
+      ) => {
         const position =
           ropeBody.translation()
 
@@ -305,7 +416,11 @@ async function start() {
         lanyardPoints.length - 1
       ]
 
-    badgeTop.set(0, 1.4, 0)
+    badgeTop.set(
+      0,
+      1.4,
+      0
+    )
 
     badgeTop.applyQuaternion(
       badge.quaternion
@@ -352,11 +467,11 @@ async function start() {
     const progress =
       index / LANYARD_SAMPLES
 
-    const uvOffset = index * 4
+    const uvOffset =
+      index * 4
 
     lanyardUvs[uvOffset] = 0
     lanyardUvs[uvOffset + 1] = progress
-
     lanyardUvs[uvOffset + 2] = 1
     lanyardUvs[uvOffset + 3] = progress
 
@@ -370,7 +485,6 @@ async function start() {
         first,
         third,
         second,
-
         second,
         third,
         fourth
@@ -416,26 +530,37 @@ async function start() {
       side: THREE.DoubleSide,
     })
 
-  const lanyard = new THREE.Mesh(
-    lanyardGeometry,
-    lanyardMaterial
-  )
+  const lanyard =
+    new THREE.Mesh(
+      lanyardGeometry,
+      lanyardMaterial
+    )
 
   lanyard.frustumCulled = false
 
   scene.add(lanyard)
 
   /*
-   * Temporary vectors for updating
-   * the lanyard without allocations
+   * Temporary update vectors
    */
 
-  const curvePoint = new THREE.Vector3()
-  const curveTangent = new THREE.Vector3()
-  const ribbonSide = new THREE.Vector3()
-  const leftPoint = new THREE.Vector3()
-  const rightPoint = new THREE.Vector3()
-  const cameraForward = new THREE.Vector3()
+  const curvePoint =
+    new THREE.Vector3()
+
+  const curveTangent =
+    new THREE.Vector3()
+
+  const ribbonSide =
+    new THREE.Vector3()
+
+  const leftPoint =
+    new THREE.Vector3()
+
+  const rightPoint =
+    new THREE.Vector3()
+
+  const cameraForward =
+    new THREE.Vector3()
 
   function updateLanyardGeometry() {
     updateLanyardPoints()
@@ -468,8 +593,7 @@ async function start() {
       )
 
       if (
-        ribbonSide.lengthSq() <
-        0.000001
+        ribbonSide.lengthSq() < 0.000001
       ) {
         ribbonSide.set(1, 0, 0)
       }
@@ -553,14 +677,25 @@ async function start() {
       0
     )
 
+  const dragOffset =
+    new THREE.Vector3()
+
   const releaseVelocity =
     new THREE.Vector3()
 
-  const dragBody = world.createRigidBody(
-    RAPIER.RigidBodyDesc
-      .kinematicPositionBased()
-      .setTranslation(0, 0, 0)
-  )
+  const localHitPoint =
+    new THREE.Vector3()
+
+  const dragBody =
+    world.createRigidBody(
+      RAPIER.RigidBodyDesc
+        .kinematicPositionBased()
+        .setTranslation(
+          0,
+          0,
+          0
+        )
+    )
 
   let dragJoint:
     RAPIER.ImpulseJoint | null = null
@@ -598,24 +733,21 @@ async function start() {
   function clampDragTarget(
     target: THREE.Vector3
   ) {
-    const offset =
-      target
-        .clone()
-        .sub(anchorPosition)
+    dragOffset
+      .copy(target)
+      .sub(anchorPosition)
 
     if (
-      offset.length() >
+      dragOffset.length() >
       MAX_DRAG_DISTANCE
     ) {
-      offset.setLength(
+      dragOffset.setLength(
         MAX_DRAG_DISTANCE
       )
 
-      target.copy(
-        anchorPosition
-          .clone()
-          .add(offset)
-      )
+      target
+        .copy(anchorPosition)
+        .add(dragOffset)
     }
   }
 
@@ -642,13 +774,11 @@ async function start() {
       }
 
       dragging = true
-      activePointerId =
-        event.pointerId
+      activePointerId = event.pointerId
 
-      renderer.domElement
-        .setPointerCapture(
-          event.pointerId
-        )
+      renderer.domElement.setPointerCapture(
+        event.pointerId
+      )
 
       renderer.domElement.style.cursor =
         'grabbing'
@@ -657,17 +787,13 @@ async function start() {
         dragCameraDirection
       )
 
-      dragPlane
-        .setFromNormalAndCoplanarPoint(
-          dragCameraDirection,
-          hit.point
-        )
-
-      dragTarget.copy(hit.point)
-
-      previousDragTarget.copy(
+      dragPlane.setFromNormalAndCoplanarPoint(
+        dragCameraDirection,
         hit.point
       )
+
+      dragTarget.copy(hit.point)
+      previousDragTarget.copy(hit.point)
 
       previousDragTime =
         performance.now()
@@ -683,10 +809,11 @@ async function start() {
 
       badge.updateMatrixWorld(true)
 
-      const localHitPoint =
-        badge.worldToLocal(
-          hit.point.clone()
-        )
+      localHitPoint.copy(hit.point)
+
+      badge.worldToLocal(
+        localHitPoint
+      )
 
       const dragJointData =
         RAPIER.JointData.spherical(
@@ -717,8 +844,7 @@ async function start() {
     event => {
       if (
         !dragging ||
-        event.pointerId !==
-          activePointerId
+        event.pointerId !== activePointerId
       ) {
         return
       }
@@ -731,11 +857,10 @@ async function start() {
       )
 
       const intersection =
-        raycaster.ray
-          .intersectPlane(
-            dragPlane,
-            dragTarget
-          )
+        raycaster.ray.intersectPlane(
+          dragPlane,
+          dragTarget
+        )
 
       if (!intersection) {
         return
@@ -771,12 +896,11 @@ async function start() {
 
       previousDragTime = now
 
-      dragBody
-        .setNextKinematicTranslation({
-          x: dragTarget.x,
-          y: dragTarget.y,
-          z: dragTarget.z,
-        })
+      dragBody.setNextKinematicTranslation({
+        x: dragTarget.x,
+        y: dragTarget.y,
+        z: dragTarget.z,
+      })
     }
   )
 
@@ -785,8 +909,7 @@ async function start() {
   ) {
     if (
       !dragging ||
-      event.pointerId !==
-        activePointerId
+      event.pointerId !== activePointerId
     ) {
       return
     }
@@ -860,25 +983,26 @@ async function start() {
    * Animation
    */
 
-  const clock = new THREE.Clock()
+  const clock =
+    new THREE.Clock()
+
   let accumulator = 0
 
   function animate() {
-    const deltaTime = Math.min(
-      clock.getDelta(),
-      0.05
-    )
+    const deltaTime =
+      Math.min(
+        clock.getDelta(),
+        0.05
+      )
 
     accumulator += deltaTime
 
     while (
-      accumulator >=
-      FIXED_TIMESTEP
+      accumulator >= FIXED_TIMESTEP
     ) {
       world.step()
 
-      accumulator -=
-        FIXED_TIMESTEP
+      accumulator -= FIXED_TIMESTEP
     }
 
     const badgePosition =
