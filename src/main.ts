@@ -16,9 +16,13 @@ async function start() {
    */
 
   const ANCHOR_Y = 3.2
+
   const ROPE_SEGMENTS = 11
   const SEGMENT_LENGTH = 0.2
   const BADGE_LINK_LENGTH = 0.14
+
+  const LANYARD_SAMPLES = 48
+  const LANYARD_HALF_WIDTH = 0.055
 
   const FIXED_TIMESTEP = 1 / 60
 
@@ -58,8 +62,7 @@ async function start() {
     Math.min(window.devicePixelRatio, 2)
   )
 
-  renderer.outputColorSpace =
-    THREE.SRGBColorSpace
+  renderer.outputColorSpace = THREE.SRGBColorSpace
 
   renderer.domElement.style.cursor = 'grab'
   renderer.domElement.style.touchAction = 'none'
@@ -70,36 +73,33 @@ async function start() {
    * Lighting
    */
 
-  const ambientLight =
-    new THREE.AmbientLight(
-      0xffffff,
-      1.5
-    )
+  const ambientLight = new THREE.AmbientLight(
+    0xffffff,
+    1.5
+  )
 
   scene.add(ambientLight)
 
-  const directionalLight =
-    new THREE.DirectionalLight(
-      0xffffff,
-      3
-    )
+  const directionalLight = new THREE.DirectionalLight(
+    0xffffff,
+    3
+  )
 
   directionalLight.position.set(3, 4, 5)
 
   scene.add(directionalLight)
 
-  const fillLight =
-    new THREE.DirectionalLight(
-      0x8ea7ff,
-      1.4
-    )
+  const fillLight = new THREE.DirectionalLight(
+    0x8ea7ff,
+    1.4
+  )
 
   fillLight.position.set(-4, 1, 2)
 
   scene.add(fillLight)
 
   /*
-   * Rapier physics world
+   * Physics world
    */
 
   const world = new RAPIER.World({
@@ -114,15 +114,10 @@ async function start() {
    * Fixed anchor
    */
 
-  const anchorBody =
-    world.createRigidBody(
-      RAPIER.RigidBodyDesc.fixed()
-        .setTranslation(
-          0,
-          ANCHOR_Y,
-          0
-        )
-    )
+  const anchorBody = world.createRigidBody(
+    RAPIER.RigidBodyDesc.fixed()
+      .setTranslation(0, ANCHOR_Y, 0)
+  )
 
   /*
    * Physics lanyard nodes
@@ -139,20 +134,15 @@ async function start() {
       ANCHOR_Y -
       SEGMENT_LENGTH * (index + 1)
 
-    const ropeBody =
-      world.createRigidBody(
-        RAPIER.RigidBodyDesc.dynamic()
-          .setTranslation(
-            0,
-            bodyY,
-            0
-          )
-          .setAdditionalMass(0.035)
-          .setLinearDamping(0.7)
-          .setAngularDamping(1.2)
-          .setCanSleep(false)
-          .setAdditionalSolverIterations(8)
-      )
+    const ropeBody = world.createRigidBody(
+      RAPIER.RigidBodyDesc.dynamic()
+        .setTranslation(0, bodyY, 0)
+        .setAdditionalMass(0.035)
+        .setLinearDamping(0.7)
+        .setAngularDamping(1.2)
+        .setCanSleep(false)
+        .setAdditionalSolverIterations(8)
+    )
 
     ropeBodies.push(ropeBody)
 
@@ -161,20 +151,19 @@ async function start() {
         ? anchorBody
         : ropeBodies[index - 1]
 
-    const ropeJoint =
-      RAPIER.JointData.rope(
-        SEGMENT_LENGTH,
-        {
-          x: 0,
-          y: 0,
-          z: 0,
-        },
-        {
-          x: 0,
-          y: 0,
-          z: 0,
-        }
-      )
+    const ropeJoint = RAPIER.JointData.rope(
+      SEGMENT_LENGTH,
+      {
+        x: 0,
+        y: 0,
+        z: 0,
+      },
+      {
+        x: 0,
+        y: 0,
+        z: 0,
+      }
+    )
 
     world.createImpulseJoint(
       ropeJoint,
@@ -188,12 +177,11 @@ async function start() {
    * Visible badge
    */
 
-  const badgeGeometry =
-    new THREE.BoxGeometry(
-      2.1,
-      2.8,
-      0.12
-    )
+  const badgeGeometry = new THREE.BoxGeometry(
+    2.1,
+    2.8,
+    0.12
+  )
 
   const badgeMaterial =
     new THREE.MeshStandardMaterial({
@@ -219,24 +207,23 @@ async function start() {
     BADGE_LINK_LENGTH -
     1.4
 
-  const badgeBody =
-    world.createRigidBody(
-      RAPIER.RigidBodyDesc.dynamic()
-        .setTranslation(
-          0.35,
-          badgeStartY,
-          0
-        )
-        .setRotation({
-          x: 0,
-          y: 0,
-          z: 0.08,
-          w: 0.9968,
-        })
-        .setLinearDamping(0.45)
-        .setAngularDamping(0.9)
-        .setAdditionalSolverIterations(12)
-    )
+  const badgeBody = world.createRigidBody(
+    RAPIER.RigidBodyDesc.dynamic()
+      .setTranslation(
+        0.35,
+        badgeStartY,
+        0
+      )
+      .setRotation({
+        x: 0,
+        y: 0,
+        z: 0.08,
+        w: 0.9968,
+      })
+      .setLinearDamping(0.45)
+      .setAngularDamping(0.9)
+      .setAdditionalSolverIterations(12)
+  )
 
   const badgeCollider =
     RAPIER.ColliderDesc.cuboid(
@@ -254,26 +241,25 @@ async function start() {
   )
 
   /*
-   * Connect the lanyard to the badge
+   * Connect lanyard to badge
    */
 
   const finalRopeBody =
     ropeBodies[ropeBodies.length - 1]
 
-  const badgeJoint =
-    RAPIER.JointData.rope(
-      BADGE_LINK_LENGTH,
-      {
-        x: 0,
-        y: 0,
-        z: 0,
-      },
-      {
-        x: 0,
-        y: 1.4,
-        z: 0,
-      }
-    )
+  const badgeJoint = RAPIER.JointData.rope(
+    BADGE_LINK_LENGTH,
+    {
+      x: 0,
+      y: 0,
+      z: 0,
+    },
+    {
+      x: 0,
+      y: 1.4,
+      z: 0,
+    }
+  )
 
   world.createImpulseJoint(
     badgeJoint,
@@ -283,37 +269,43 @@ async function start() {
   )
 
   /*
-   * Visible lanyard tube
+   * Reusable lanyard points
    */
 
-  function getLanyardPoints() {
-    const points: THREE.Vector3[] = [
-      new THREE.Vector3(
-        0,
-        ANCHOR_Y,
-        0
-      ),
-    ]
+  const lanyardPoints: THREE.Vector3[] =
+    Array.from(
+      {
+        length: ROPE_SEGMENTS + 2,
+      },
+      () => new THREE.Vector3()
+    )
 
-    for (const ropeBody of ropeBodies) {
-      const position =
-        ropeBody.translation()
+  function updateLanyardPoints() {
+    lanyardPoints[0].set(
+      0,
+      ANCHOR_Y,
+      0
+    )
 
-      points.push(
-        new THREE.Vector3(
+    ropeBodies.forEach(
+      (ropeBody, index) => {
+        const position =
+          ropeBody.translation()
+
+        lanyardPoints[index + 1].set(
           position.x,
           position.y,
           position.z
         )
-      )
-    }
+      }
+    )
 
     const badgeTop =
-      new THREE.Vector3(
-        0,
-        1.4,
-        0
-      )
+      lanyardPoints[
+        lanyardPoints.length - 1
+      ]
+
+    badgeTop.set(0, 1.4, 0)
 
     badgeTop.applyQuaternion(
       badge.quaternion
@@ -322,37 +314,110 @@ async function start() {
     badgeTop.add(
       badge.position
     )
-
-    points.push(badgeTop)
-
-    return points
   }
 
-  const initialCurve =
+  updateLanyardPoints()
+
+  const lanyardCurve =
     new THREE.CatmullRomCurve3(
-      getLanyardPoints(),
+      lanyardPoints,
       false,
       'centripetal'
     )
 
-  const initialLanyardGeometry =
-    new THREE.TubeGeometry(
-      initialCurve,
-      64,
-      0.055,
-      8,
-      false
+  /*
+   * Reusable ribbon geometry
+   */
+
+  const vertexCount =
+    (LANYARD_SAMPLES + 1) * 2
+
+  const lanyardPositions =
+    new Float32Array(
+      vertexCount * 3
     )
+
+  const lanyardUvs =
+    new Float32Array(
+      vertexCount * 2
+    )
+
+  const lanyardIndices: number[] = []
+
+  for (
+    let index = 0;
+    index <= LANYARD_SAMPLES;
+    index += 1
+  ) {
+    const progress =
+      index / LANYARD_SAMPLES
+
+    const uvOffset = index * 4
+
+    lanyardUvs[uvOffset] = 0
+    lanyardUvs[uvOffset + 1] = progress
+
+    lanyardUvs[uvOffset + 2] = 1
+    lanyardUvs[uvOffset + 3] = progress
+
+    if (index < LANYARD_SAMPLES) {
+      const first = index * 2
+      const second = first + 1
+      const third = first + 2
+      const fourth = first + 3
+
+      lanyardIndices.push(
+        first,
+        third,
+        second,
+
+        second,
+        third,
+        fourth
+      )
+    }
+  }
+
+  const lanyardGeometry =
+    new THREE.BufferGeometry()
+
+  const lanyardPositionAttribute =
+    new THREE.BufferAttribute(
+      lanyardPositions,
+      3
+    )
+
+  lanyardPositionAttribute.setUsage(
+    THREE.DynamicDrawUsage
+  )
+
+  lanyardGeometry.setAttribute(
+    'position',
+    lanyardPositionAttribute
+  )
+
+  lanyardGeometry.setAttribute(
+    'uv',
+    new THREE.BufferAttribute(
+      lanyardUvs,
+      2
+    )
+  )
+
+  lanyardGeometry.setIndex(
+    lanyardIndices
+  )
 
   const lanyardMaterial =
     new THREE.MeshStandardMaterial({
       color: 0x111111,
       roughness: 0.9,
       metalness: 0,
+      side: THREE.DoubleSide,
     })
 
   const lanyard = new THREE.Mesh(
-    initialLanyardGeometry,
+    lanyardGeometry,
     lanyardMaterial
   )
 
@@ -361,14 +426,118 @@ async function start() {
   scene.add(lanyard)
 
   /*
+   * Temporary vectors for updating
+   * the lanyard without allocations
+   */
+
+  const curvePoint = new THREE.Vector3()
+  const curveTangent = new THREE.Vector3()
+  const ribbonSide = new THREE.Vector3()
+  const leftPoint = new THREE.Vector3()
+  const rightPoint = new THREE.Vector3()
+  const cameraForward = new THREE.Vector3()
+
+  function updateLanyardGeometry() {
+    updateLanyardPoints()
+
+    camera.getWorldDirection(
+      cameraForward
+    )
+
+    for (
+      let index = 0;
+      index <= LANYARD_SAMPLES;
+      index += 1
+    ) {
+      const progress =
+        index / LANYARD_SAMPLES
+
+      lanyardCurve.getPointAt(
+        progress,
+        curvePoint
+      )
+
+      lanyardCurve.getTangentAt(
+        progress,
+        curveTangent
+      )
+
+      ribbonSide.crossVectors(
+        curveTangent,
+        cameraForward
+      )
+
+      if (
+        ribbonSide.lengthSq() <
+        0.000001
+      ) {
+        ribbonSide.set(1, 0, 0)
+      }
+
+      ribbonSide
+        .normalize()
+        .multiplyScalar(
+          LANYARD_HALF_WIDTH
+        )
+
+      leftPoint
+        .copy(curvePoint)
+        .add(ribbonSide)
+
+      rightPoint
+        .copy(curvePoint)
+        .sub(ribbonSide)
+
+      const positionOffset =
+        index * 6
+
+      lanyardPositions[
+        positionOffset
+      ] = leftPoint.x
+
+      lanyardPositions[
+        positionOffset + 1
+      ] = leftPoint.y
+
+      lanyardPositions[
+        positionOffset + 2
+      ] = leftPoint.z
+
+      lanyardPositions[
+        positionOffset + 3
+      ] = rightPoint.x
+
+      lanyardPositions[
+        positionOffset + 4
+      ] = rightPoint.y
+
+      lanyardPositions[
+        positionOffset + 5
+      ] = rightPoint.z
+    }
+
+    lanyardPositionAttribute.needsUpdate =
+      true
+
+    lanyardGeometry.computeVertexNormals()
+  }
+
+  updateLanyardGeometry()
+
+  /*
    * Mouse and touch dragging
    */
 
-  const raycaster = new THREE.Raycaster()
-  const pointer = new THREE.Vector2()
-  const dragPlane = new THREE.Plane()
+  const raycaster =
+    new THREE.Raycaster()
 
-  const cameraDirection =
+  const pointer =
+    new THREE.Vector2()
+
+  const dragPlane =
+    new THREE.Plane()
+
+  const dragCameraDirection =
     new THREE.Vector3()
 
   const dragTarget =
@@ -387,17 +556,17 @@ async function start() {
   const releaseVelocity =
     new THREE.Vector3()
 
-  const dragBody =
-    world.createRigidBody(
-      RAPIER.RigidBodyDesc
-        .kinematicPositionBased()
-        .setTranslation(0, 0, 0)
-    )
+  const dragBody = world.createRigidBody(
+    RAPIER.RigidBodyDesc
+      .kinematicPositionBased()
+      .setTranslation(0, 0, 0)
+  )
 
   let dragJoint:
     RAPIER.ImpulseJoint | null = null
 
   let dragging = false
+
   let activePointerId:
     number | null = null
 
@@ -485,12 +654,12 @@ async function start() {
         'grabbing'
 
       camera.getWorldDirection(
-        cameraDirection
+        dragCameraDirection
       )
 
       dragPlane
         .setFromNormalAndCoplanarPoint(
-          cameraDirection,
+          dragCameraDirection,
           hit.point
         )
 
@@ -511,6 +680,8 @@ async function start() {
         },
         true
       )
+
+      badge.updateMatrixWorld(true)
 
       const localHitPoint =
         badge.worldToLocal(
@@ -729,25 +900,7 @@ async function start() {
       badgeRotation.w
     )
 
-    const curve =
-      new THREE.CatmullRomCurve3(
-        getLanyardPoints(),
-        false,
-        'centripetal'
-      )
-
-    const nextGeometry =
-      new THREE.TubeGeometry(
-        curve,
-        64,
-        0.055,
-        8,
-        false
-      )
-
-    lanyard.geometry.dispose()
-    lanyard.geometry =
-      nextGeometry
+    updateLanyardGeometry()
 
     renderer.render(
       scene,
