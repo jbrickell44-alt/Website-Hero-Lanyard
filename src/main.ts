@@ -1,31 +1,106 @@
 import * as THREE from 'three'
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
 import RAPIER from '@dimforge/rapier3d-compat'
 import './style.css'
+
+import badgeFrontUrl from './assets/Front_V1.jpg'
+import badgeBackUrl from './assets/Back_V1.jpg'
 
 async function start() {
   await RAPIER.init()
 
-  const app =
-    document.querySelector<HTMLDivElement>('#app')
+  const app = document.querySelector<HTMLDivElement>('#app')
 
   if (!app) {
     throw new Error('Could not find the #app element')
   }
 
   /*
-   * Configuration
+   * Main configuration
    */
 
-  const ANCHOR_Y = 3.2
+  const ANCHOR_Y = 4.1
 
   const ROPE_SEGMENTS = 11
   const SEGMENT_LENGTH = 0.2
   const BADGE_LINK_LENGTH = 0.14
 
   const LANYARD_SAMPLES = 48
-  const LANYARD_HALF_WIDTH = 0.055
+
+  /*
+   * Wide strap settings
+   */
+
+  const LANYARD_HALF_WIDTH = 0.22
+  const MAIN_STRAP_WIDTH = LANYARD_HALF_WIDTH * 2
+  const STRAP_DEPTH = 0.06
+
+  /*
+   * Plastic buckle scale
+   */
+
+  const CLIP_SCALE = 0.5
+
+  /*
+   * The fixed strap pieces are modelled larger
+   * because the whole buckle assembly is scaled.
+   */
+
+  const CLIP_LOCAL_STRAP_WIDTH =
+    MAIN_STRAP_WIDTH / CLIP_SCALE
+
+  const CLIP_LOCAL_STRAP_DEPTH =
+    STRAP_DEPTH / CLIP_SCALE
 
   const FIXED_TIMESTEP = 1 / 60
+
+  /*
+   * Badge dimensions
+   */
+
+  const BADGE_WIDTH = 2.1
+  const BADGE_HEIGHT = 2.8
+  const BADGE_DEPTH = 0.18
+
+  const BADGE_HALF_WIDTH = BADGE_WIDTH / 2
+  const BADGE_HALF_HEIGHT = BADGE_HEIGHT / 2
+  const BADGE_HALF_DEPTH = BADGE_DEPTH / 2
+
+  const BADGE_CORNER_SEGMENTS = 8
+  const BADGE_CORNER_RADIUS = 0.085
+
+  /*
+   * Badge eyelet position
+   */
+
+  const EYELET_CENTER_Y =
+    BADGE_HALF_HEIGHT - 0.2
+
+  /*
+   * Clip assembly pivot
+   */
+
+  const BADGE_RING_Y =
+    BADGE_HALF_HEIGHT + 0.01
+
+  /*
+   * Clip-local positions
+   */
+
+  const CONNECTOR_UPPER_RING_Y = 0.38
+  const CLIP_LOWER_SLOT_Y = 0.72
+  const CLIP_BUCKLE_CENTER_Y = 0.98
+  const CLIP_UPPER_SLOT_Y = 1.24
+  const CLIP_STRAP_CONNECTION_Y = 1.72
+
+  /*
+   * Convert the clip-local connection point
+   * into the badge assembly coordinate system.
+   */
+
+  const STRAP_CONNECTION_Y =
+    BADGE_RING_Y +
+    CLIP_STRAP_CONNECTION_Y * CLIP_SCALE
 
   const TOTAL_ROPE_LENGTH =
     ROPE_SEGMENTS * SEGMENT_LENGTH +
@@ -35,12 +110,13 @@ async function start() {
     TOTAL_ROPE_LENGTH + 1.5
 
   /*
-   * Three.js scene
+   * Scene
    */
 
   const scene = new THREE.Scene()
 
-  scene.background = new THREE.Color('#1a1a1a')
+  scene.background =
+    new THREE.Color('#1a1a1a')
 
   const camera =
     new THREE.PerspectiveCamera(
@@ -50,7 +126,7 @@ async function start() {
       100
     )
 
-  camera.position.set(0, 0, 8)
+  camera.position.set(0, 0, 10.5)
 
   const renderer =
     new THREE.WebGLRenderer({
@@ -63,14 +139,20 @@ async function start() {
   )
 
   renderer.setPixelRatio(
-    Math.min(window.devicePixelRatio, 2)
+    Math.min(
+      window.devicePixelRatio,
+      2
+    )
   )
 
   renderer.outputColorSpace =
     THREE.SRGBColorSpace
 
-  renderer.domElement.style.cursor = 'grab'
-  renderer.domElement.style.touchAction = 'none'
+  renderer.domElement.style.cursor =
+    'grab'
+
+  renderer.domElement.style.touchAction =
+    'none'
 
   app.appendChild(renderer.domElement)
 
@@ -81,30 +163,40 @@ async function start() {
   const ambientLight =
     new THREE.AmbientLight(
       0xffffff,
-      1.5
+      1.45
     )
 
   scene.add(ambientLight)
 
-  const directionalLight =
+  const keyLight =
     new THREE.DirectionalLight(
       0xffffff,
-      3
+      3.2
     )
 
-  directionalLight.position.set(3, 4, 5)
+  keyLight.position.set(3, 4, 5)
 
-  scene.add(directionalLight)
+  scene.add(keyLight)
 
   const fillLight =
     new THREE.DirectionalLight(
-      0x8ea7ff,
-      1.4
+      0x9eb2ff,
+      1.3
     )
 
-  fillLight.position.set(-4, 1, 2)
+  fillLight.position.set(-4, 1, 3)
 
   scene.add(fillLight)
+
+  const rimLight =
+    new THREE.DirectionalLight(
+      0xffffff,
+      1
+    )
+
+  rimLight.position.set(0, -2, -4)
+
+  scene.add(rimLight)
 
   /*
    * Physics world
@@ -117,10 +209,11 @@ async function start() {
       z: 0,
     })
 
-  world.timestep = FIXED_TIMESTEP
+  world.timestep =
+    FIXED_TIMESTEP
 
   /*
-   * Fixed anchor
+   * Fixed lanyard anchor
    */
 
   const anchorBody =
@@ -202,42 +295,71 @@ async function start() {
   const textureLoader =
     new THREE.TextureLoader()
 
+  const maxAnisotropy =
+    renderer.capabilities.getMaxAnisotropy()
+
+  async function loadBadgeTexture(
+    url: string,
+    label: string
+  ): Promise<THREE.Texture | null> {
+    try {
+      const texture =
+        await textureLoader.loadAsync(url)
+
+      texture.colorSpace =
+        THREE.SRGBColorSpace
+
+      texture.anisotropy =
+        maxAnisotropy
+
+      return texture
+    } catch (error) {
+      console.error(
+        `Could not load ${label}:`,
+        error
+      )
+
+      return null
+    }
+  }
+
   const [
     badgeFrontTexture,
     badgeBackTexture,
   ] = await Promise.all([
-    textureLoader.loadAsync(
-      '/textures/Front_V1.jpg'
+    loadBadgeTexture(
+      badgeFrontUrl,
+      'front badge texture'
     ),
-    textureLoader.loadAsync(
-      '/textures/Back_V1.jpg'
+    loadBadgeTexture(
+      badgeBackUrl,
+      'back badge texture'
     ),
   ])
 
-  badgeFrontTexture.colorSpace =
-    THREE.SRGBColorSpace
+  /*
+   * Badge assembly
+   */
 
-  badgeBackTexture.colorSpace =
-    THREE.SRGBColorSpace
+  const badgeAssembly =
+    new THREE.Group()
 
-  const maxAnisotropy =
-    renderer.capabilities.getMaxAnisotropy()
+  badgeAssembly.name =
+    'badge-assembly'
 
-  badgeFrontTexture.anisotropy =
-    maxAnisotropy
-
-  badgeBackTexture.anisotropy =
-    maxAnisotropy
+  scene.add(badgeAssembly)
 
   /*
-   * Visible badge
+   * Badge card
    */
 
   const badgeGeometry =
-    new THREE.BoxGeometry(
-      2.1,
-      2.8,
-      0.12
+    new RoundedBoxGeometry(
+      BADGE_WIDTH,
+      BADGE_HEIGHT,
+      BADGE_DEPTH,
+      BADGE_CORNER_SEGMENTS,
+      BADGE_CORNER_RADIUS
     )
 
   const badgeSideMaterial =
@@ -249,6 +371,9 @@ async function start() {
 
   const badgeFrontMaterial =
     new THREE.MeshStandardMaterial({
+      color: badgeFrontTexture
+        ? 0xffffff
+        : 0xdddddd,
       map: badgeFrontTexture,
       roughness: 0.42,
       metalness: 0,
@@ -256,6 +381,9 @@ async function start() {
 
   const badgeBackMaterial =
     new THREE.MeshStandardMaterial({
+      color: badgeBackTexture
+        ? 0xffffff
+        : 0xbcbcbc,
       map: badgeBackTexture,
       roughness: 0.42,
       metalness: 0,
@@ -276,7 +404,850 @@ async function start() {
       badgeMaterials
     )
 
-  scene.add(badge)
+  badge.name = 'badge-card'
+
+  badgeAssembly.add(badge)
+
+  /*
+   * Materials
+   */
+
+  const plasticMaterial =
+    new THREE.MeshStandardMaterial({
+      color: 0x17191c,
+      roughness: 0.62,
+      metalness: 0,
+    })
+
+  const plasticHighlightMaterial =
+    new THREE.MeshStandardMaterial({
+      color: 0x2b2e33,
+      roughness: 0.5,
+      metalness: 0,
+    })
+
+  const plasticDarkMaterial =
+    new THREE.MeshStandardMaterial({
+      color: 0x070809,
+      roughness: 0.76,
+      metalness: 0,
+      side: THREE.DoubleSide,
+    })
+
+  const strapMaterial =
+    new THREE.MeshStandardMaterial({
+      color: 0x101010,
+      roughness: 0.88,
+      metalness: 0,
+      side: THREE.DoubleSide,
+    })
+
+  /*
+   * Geometry helper
+   */
+
+  function createRoundedPart(
+    width: number,
+    height: number,
+    depth: number,
+    radius: number,
+    material: THREE.Material
+  ) {
+    return new THREE.Mesh(
+      new RoundedBoxGeometry(
+        width,
+        height,
+        depth,
+        5,
+        radius
+      ),
+      material
+    )
+  }
+
+  /*
+   * Strap slot helper
+   */
+
+  function createStrapSlot() {
+    const slotGroup =
+      new THREE.Group()
+
+    const slotOuterWidth = 1.1
+    const slotOuterHeight = 0.3
+    const slotDepth = 0.24
+    const barThickness = 0.095
+
+    const topBar =
+      createRoundedPart(
+        slotOuterWidth,
+        barThickness,
+        slotDepth,
+        0.032,
+        plasticMaterial
+      )
+
+    topBar.position.y =
+      slotOuterHeight / 2
+
+    slotGroup.add(topBar)
+
+    const bottomBar =
+      createRoundedPart(
+        slotOuterWidth,
+        barThickness,
+        slotDepth,
+        0.032,
+        plasticMaterial
+      )
+
+    bottomBar.position.y =
+      -slotOuterHeight / 2
+
+    slotGroup.add(bottomBar)
+
+    const leftBar =
+      createRoundedPart(
+        barThickness,
+        slotOuterHeight,
+        slotDepth,
+        0.032,
+        plasticMaterial
+      )
+
+    leftBar.position.x =
+      -slotOuterWidth / 2
+
+    slotGroup.add(leftBar)
+
+    const rightBar =
+      createRoundedPart(
+        barThickness,
+        slotOuterHeight,
+        slotDepth,
+        0.032,
+        plasticMaterial
+      )
+
+    rightBar.position.x =
+      slotOuterWidth / 2
+
+    slotGroup.add(rightBar)
+
+    return slotGroup
+  }
+
+  /*
+   * Badge eyelet hole
+   */
+
+  const eyeletHoleGeometry =
+    new THREE.CircleGeometry(
+      0.078,
+      32
+    )
+
+  const eyeletHoleFront =
+    new THREE.Mesh(
+      eyeletHoleGeometry,
+      plasticDarkMaterial
+    )
+
+  eyeletHoleFront.position.set(
+    0,
+    EYELET_CENTER_Y,
+    BADGE_HALF_DEPTH + 0.004
+  )
+
+  badgeAssembly.add(
+    eyeletHoleFront
+  )
+
+  const eyeletHoleBack =
+    new THREE.Mesh(
+      eyeletHoleGeometry,
+      plasticDarkMaterial
+    )
+
+  eyeletHoleBack.position.set(
+    0,
+    EYELET_CENTER_Y,
+    -BADGE_HALF_DEPTH - 0.004
+  )
+
+  eyeletHoleBack.rotation.y =
+    Math.PI
+
+  badgeAssembly.add(
+    eyeletHoleBack
+  )
+
+  /*
+   * Eyelet sleeve
+   */
+
+  const eyeletSleeveGeometry =
+    new THREE.CylinderGeometry(
+      0.079,
+      0.079,
+      BADGE_DEPTH + 0.052,
+      32,
+      1,
+      true
+    )
+
+  const eyeletSleeve =
+    new THREE.Mesh(
+      eyeletSleeveGeometry,
+      plasticMaterial
+    )
+
+  eyeletSleeve.position.set(
+    0,
+    EYELET_CENTER_Y,
+    0
+  )
+
+  eyeletSleeve.rotation.x =
+    Math.PI / 2
+
+  badgeAssembly.add(
+    eyeletSleeve
+  )
+
+  /*
+   * Eyelet rims
+   */
+
+  const eyeletRimGeometry =
+    new THREE.TorusGeometry(
+      0.104,
+      0.026,
+      16,
+      48
+    )
+
+  const eyeletFront =
+    new THREE.Mesh(
+      eyeletRimGeometry,
+      plasticHighlightMaterial
+    )
+
+  eyeletFront.position.set(
+    0,
+    EYELET_CENTER_Y,
+    BADGE_HALF_DEPTH + 0.019
+  )
+
+  badgeAssembly.add(
+    eyeletFront
+  )
+
+  const eyeletBack =
+    new THREE.Mesh(
+      eyeletRimGeometry,
+      plasticHighlightMaterial
+    )
+
+  eyeletBack.position.set(
+    0,
+    EYELET_CENTER_Y,
+    -BADGE_HALF_DEPTH - 0.019
+  )
+
+  badgeAssembly.add(
+    eyeletBack
+  )
+
+  /*
+   * Scaled breakaway buckle assembly
+   */
+
+  const clipAssembly =
+    new THREE.Group()
+
+  clipAssembly.name =
+    'plastic-breakaway-clip'
+
+  clipAssembly.position.set(
+    0,
+    BADGE_RING_Y,
+    0
+  )
+
+  clipAssembly.scale.setScalar(
+    CLIP_SCALE
+  )
+
+  badgeAssembly.add(
+    clipAssembly
+  )
+
+  /*
+   * Small ring through badge eyelet
+   */
+
+  const badgeConnectorRingGeometry =
+    new THREE.TorusGeometry(
+      0.18,
+      0.045,
+      16,
+      48
+    )
+
+  const badgeConnectorRing =
+    new THREE.Mesh(
+      badgeConnectorRingGeometry,
+      plasticMaterial
+    )
+
+  badgeConnectorRing.name =
+    'badge-connector-ring'
+
+  badgeConnectorRing.position.set(
+    0,
+    0,
+    0
+  )
+
+  clipAssembly.add(
+    badgeConnectorRing
+  )
+
+  /*
+   * Small ring beneath the lower strap
+   */
+
+  const upperConnectorRingGeometry =
+    new THREE.TorusGeometry(
+      0.16,
+      0.045,
+      16,
+      48
+    )
+
+  const upperConnectorRing =
+    new THREE.Mesh(
+      upperConnectorRingGeometry,
+      plasticMaterial
+    )
+
+  upperConnectorRing.name =
+    'upper-connector-ring'
+
+  upperConnectorRing.position.set(
+    0,
+    CONNECTOR_UPPER_RING_Y,
+    0
+  )
+
+  clipAssembly.add(
+    upperConnectorRing
+  )
+
+  /*
+   * Elongated moulded plastic connector
+   *
+   * The upper hole connects to the small ring
+   * beneath the strap. The larger lower hole
+   * surrounds the badge ring.
+   */
+
+  const connectorShape =
+    new THREE.Shape()
+
+  connectorShape.moveTo(
+    -0.09,
+    0.45
+  )
+
+  connectorShape.lineTo(
+    0.09,
+    0.45
+  )
+
+  connectorShape.bezierCurveTo(
+    0.14,
+    0.42,
+    0.17,
+    0.35,
+    0.17,
+    0.27
+  )
+
+  connectorShape.bezierCurveTo(
+    0.17,
+    0.18,
+    0.24,
+    0.08,
+    0.24,
+    -0.03
+  )
+
+  connectorShape.bezierCurveTo(
+    0.24,
+    -0.18,
+    0.14,
+    -0.34,
+    0,
+    -0.42
+  )
+
+  connectorShape.bezierCurveTo(
+    -0.14,
+    -0.34,
+    -0.24,
+    -0.18,
+    -0.24,
+    -0.03
+  )
+
+  connectorShape.bezierCurveTo(
+    -0.24,
+    0.08,
+    -0.17,
+    0.18,
+    -0.17,
+    0.27
+  )
+
+  connectorShape.bezierCurveTo(
+    -0.17,
+    0.35,
+    -0.14,
+    0.42,
+    -0.09,
+    0.45
+  )
+
+  connectorShape.closePath()
+
+  /*
+   * Upper round opening
+   */
+
+  const upperConnectorHole =
+    new THREE.Path()
+
+  upperConnectorHole.absellipse(
+    0,
+    0.33,
+    0.067,
+    0.067,
+    0,
+    Math.PI * 2,
+    false
+  )
+
+  connectorShape.holes.push(
+    upperConnectorHole
+  )
+
+  /*
+   * Lower elongated opening
+   */
+
+  const lowerConnectorHole =
+    new THREE.Path()
+
+  lowerConnectorHole.absellipse(
+    0,
+    -0.06,
+    0.105,
+    0.19,
+    0,
+    Math.PI * 2,
+    false
+  )
+
+  connectorShape.holes.push(
+    lowerConnectorHole
+  )
+
+  const connectorDepth = 0.15
+
+  const connectorGeometry =
+    new THREE.ExtrudeGeometry(
+      connectorShape,
+      {
+        depth: connectorDepth,
+        steps: 1,
+        curveSegments: 24,
+        bevelEnabled: true,
+        bevelThickness: 0.018,
+        bevelSize: 0.018,
+        bevelSegments: 3,
+      }
+    )
+
+  connectorGeometry.translate(
+    0,
+    0,
+    -connectorDepth / 2
+  )
+
+  const dropConnector =
+    new THREE.Mesh(
+      connectorGeometry,
+      plasticMaterial
+    )
+
+  dropConnector.name =
+    'moulded-drop-connector'
+
+  dropConnector.position.set(
+    0,
+    0,
+    0
+  )
+
+  clipAssembly.add(
+    dropConnector
+  )
+
+  /*
+   * Raised front face
+   */
+
+  const connectorFaceShape =
+    connectorShape.clone()
+
+  const connectorFaceGeometry =
+    new THREE.ShapeGeometry(
+      connectorFaceShape,
+      24
+    )
+
+  const connectorFace =
+    new THREE.Mesh(
+      connectorFaceGeometry,
+      plasticHighlightMaterial
+    )
+
+  connectorFace.name =
+    'drop-connector-front-face'
+
+  connectorFace.position.set(
+    0,
+    0,
+    connectorDepth / 2 + 0.003
+  )
+
+  connectorFace.scale.set(
+    0.9,
+    0.9,
+    1
+  )
+
+  clipAssembly.add(
+    connectorFace
+  )
+
+  /*
+   * Lower fixed strap
+   */
+
+  const lowerStrapBottomY =
+    CONNECTOR_UPPER_RING_Y + 0.13
+
+  const lowerStrapTopY =
+    CLIP_LOWER_SLOT_Y
+
+  const lowerStrapHeight =
+    lowerStrapTopY -
+    lowerStrapBottomY
+
+  const lowerStrap =
+    createRoundedPart(
+      CLIP_LOCAL_STRAP_WIDTH,
+      lowerStrapHeight,
+      CLIP_LOCAL_STRAP_DEPTH,
+      0.035,
+      strapMaterial
+    )
+
+  lowerStrap.position.set(
+    0,
+    (
+      lowerStrapBottomY +
+      lowerStrapTopY
+    ) / 2,
+    0.055
+  )
+
+  clipAssembly.add(
+    lowerStrap
+  )
+
+  /*
+   * Lower strap slot
+   */
+
+  const lowerSlot =
+    createStrapSlot()
+
+  lowerSlot.position.set(
+    0,
+    CLIP_LOWER_SLOT_Y,
+    0
+  )
+
+  clipAssembly.add(
+    lowerSlot
+  )
+
+  /*
+   * Lower strap fold
+   */
+
+  const lowerStrapFold =
+    createRoundedPart(
+      CLIP_LOCAL_STRAP_WIDTH,
+      0.12,
+      0.28,
+      0.04,
+      strapMaterial
+    )
+
+  lowerStrapFold.position.set(
+    0,
+    CLIP_LOWER_SLOT_Y,
+    0
+  )
+
+  clipAssembly.add(
+    lowerStrapFold
+  )
+
+  /*
+   * Breakaway buckle halves
+   */
+
+  const buckleUpperHalf =
+    createRoundedPart(
+      1.16,
+      0.25,
+      0.26,
+      0.065,
+      plasticMaterial
+    )
+
+  buckleUpperHalf.position.set(
+    0,
+    CLIP_BUCKLE_CENTER_Y + 0.125,
+    0
+  )
+
+  clipAssembly.add(
+    buckleUpperHalf
+  )
+
+  const buckleLowerHalf =
+    createRoundedPart(
+      1.16,
+      0.25,
+      0.26,
+      0.065,
+      plasticMaterial
+    )
+
+  buckleLowerHalf.position.set(
+    0,
+    CLIP_BUCKLE_CENTER_Y - 0.125,
+    0
+  )
+
+  clipAssembly.add(
+    buckleLowerHalf
+  )
+
+  /*
+   * Breakaway seam
+   */
+
+  const buckleSeam =
+    createRoundedPart(
+      1.18,
+      0.04,
+      0.275,
+      0.012,
+      plasticDarkMaterial
+    )
+
+  buckleSeam.position.set(
+    0,
+    CLIP_BUCKLE_CENTER_Y,
+    0
+  )
+
+  clipAssembly.add(
+    buckleSeam
+  )
+
+  /*
+   * Raised buckle face
+   */
+
+  const buckleFace =
+    createRoundedPart(
+      0.85,
+      0.25,
+      0.035,
+      0.03,
+      plasticHighlightMaterial
+    )
+
+  buckleFace.position.set(
+    0,
+    CLIP_BUCKLE_CENTER_Y,
+    0.148
+  )
+
+  clipAssembly.add(
+    buckleFace
+  )
+
+  /*
+   * Side grips
+   */
+
+  const leftGrip =
+    createRoundedPart(
+      0.11,
+      0.18,
+      0.27,
+      0.035,
+      plasticHighlightMaterial
+    )
+
+  leftGrip.position.set(
+    -0.58,
+    CLIP_BUCKLE_CENTER_Y,
+    0
+  )
+
+  clipAssembly.add(
+    leftGrip
+  )
+
+  const rightGrip =
+    createRoundedPart(
+      0.11,
+      0.18,
+      0.27,
+      0.035,
+      plasticHighlightMaterial
+    )
+
+  rightGrip.position.set(
+    0.58,
+    CLIP_BUCKLE_CENTER_Y,
+    0
+  )
+
+  clipAssembly.add(
+    rightGrip
+  )
+
+  /*
+   * Upper strap slot
+   */
+
+  const upperSlot =
+    createStrapSlot()
+
+  upperSlot.position.set(
+    0,
+    CLIP_UPPER_SLOT_Y,
+    0
+  )
+
+  clipAssembly.add(
+    upperSlot
+  )
+
+  /*
+   * Upper fixed strap
+   */
+
+  const upperStrapBottomY =
+    CLIP_UPPER_SLOT_Y
+
+  const upperStrapHeight =
+    CLIP_STRAP_CONNECTION_Y -
+    upperStrapBottomY
+
+  const upperStrap =
+    createRoundedPart(
+      CLIP_LOCAL_STRAP_WIDTH,
+      upperStrapHeight,
+      CLIP_LOCAL_STRAP_DEPTH,
+      0.035,
+      strapMaterial
+    )
+
+  upperStrap.position.set(
+    0,
+    (
+      CLIP_STRAP_CONNECTION_Y +
+      upperStrapBottomY
+    ) / 2,
+    0.065
+  )
+
+  clipAssembly.add(
+    upperStrap
+  )
+
+  /*
+   * Upper strap fold
+   */
+
+  const upperStrapFold =
+    createRoundedPart(
+      CLIP_LOCAL_STRAP_WIDTH,
+      0.12,
+      0.28,
+      0.04,
+      strapMaterial
+    )
+
+  upperStrapFold.position.set(
+    0,
+    CLIP_UPPER_SLOT_Y,
+    0
+  )
+
+  clipAssembly.add(
+    upperStrapFold
+  )
+
+  /*
+   * Upper return tail
+   */
+
+  const returnTailHeight = 0.36
+
+  const upperReturnTail =
+    createRoundedPart(
+      CLIP_LOCAL_STRAP_WIDTH,
+      returnTailHeight,
+      CLIP_LOCAL_STRAP_DEPTH,
+      0.035,
+      strapMaterial
+    )
+
+  upperReturnTail.position.set(
+    0,
+    CLIP_UPPER_SLOT_Y +
+      returnTailHeight / 2 -
+      0.02,
+    -0.12
+  )
+
+  clipAssembly.add(
+    upperReturnTail
+  )
 
   /*
    * Badge physics body
@@ -286,7 +1257,7 @@ async function start() {
     ANCHOR_Y -
     ROPE_SEGMENTS * SEGMENT_LENGTH -
     BADGE_LINK_LENGTH -
-    1.4
+    STRAP_CONNECTION_Y
 
   const badgeBody =
     world.createRigidBody(
@@ -311,9 +1282,9 @@ async function start() {
   const badgeCollider =
     RAPIER.ColliderDesc
       .cuboid(
-        1.05,
-        1.4,
-        0.06
+        BADGE_HALF_WIDTH,
+        BADGE_HALF_HEIGHT,
+        BADGE_HALF_DEPTH
       )
       .setRestitution(0.05)
       .setFriction(0.7)
@@ -325,7 +1296,7 @@ async function start() {
   )
 
   /*
-   * Connect lanyard to badge
+   * Connect lanyard physics to strap
    */
 
   const finalRopeBody =
@@ -341,7 +1312,7 @@ async function start() {
       },
       {
         x: 0,
-        y: 1.4,
+        y: STRAP_CONNECTION_Y,
         z: 0,
       }
     )
@@ -354,7 +1325,7 @@ async function start() {
   )
 
   /*
-   * Initial badge position
+   * Initial badge transform
    */
 
   const initialBadgePosition =
@@ -363,13 +1334,13 @@ async function start() {
   const initialBadgeRotation =
     badgeBody.rotation()
 
-  badge.position.set(
+  badgeAssembly.position.set(
     initialBadgePosition.x,
     initialBadgePosition.y,
     initialBadgePosition.z
   )
 
-  badge.quaternion.set(
+  badgeAssembly.quaternion.set(
     initialBadgeRotation.x,
     initialBadgeRotation.y,
     initialBadgeRotation.z,
@@ -377,7 +1348,7 @@ async function start() {
   )
 
   /*
-   * Reusable lanyard points
+   * Lanyard curve points
    */
 
   const lanyardPoints: THREE.Vector3[] =
@@ -387,6 +1358,9 @@ async function start() {
       },
       () => new THREE.Vector3()
     )
+
+  const badgeConnectionPoint =
+    new THREE.Vector3()
 
   function updateLanyardPoints() {
     lanyardPoints[0].set(
@@ -411,23 +1385,24 @@ async function start() {
       }
     )
 
-    const badgeTop =
-      lanyardPoints[
-        lanyardPoints.length - 1
-      ]
-
-    badgeTop.set(
+    badgeConnectionPoint.set(
       0,
-      1.4,
+      STRAP_CONNECTION_Y,
       0
     )
 
-    badgeTop.applyQuaternion(
-      badge.quaternion
+    badgeConnectionPoint.applyQuaternion(
+      badgeAssembly.quaternion
     )
 
-    badgeTop.add(
-      badge.position
+    badgeConnectionPoint.add(
+      badgeAssembly.position
+    )
+
+    lanyardPoints[
+      lanyardPoints.length - 1
+    ].copy(
+      badgeConnectionPoint
     )
   }
 
@@ -441,7 +1416,7 @@ async function start() {
     )
 
   /*
-   * Reusable ribbon geometry
+   * Dynamic lanyard geometry
    */
 
   const vertexCount =
@@ -522,18 +1497,10 @@ async function start() {
     lanyardIndices
   )
 
-  const lanyardMaterial =
-    new THREE.MeshStandardMaterial({
-      color: 0x111111,
-      roughness: 0.9,
-      metalness: 0,
-      side: THREE.DoubleSide,
-    })
-
   const lanyard =
     new THREE.Mesh(
       lanyardGeometry,
-      lanyardMaterial
+      strapMaterial
     )
 
   lanyard.frustumCulled = false
@@ -541,7 +1508,7 @@ async function start() {
   scene.add(lanyard)
 
   /*
-   * Temporary update vectors
+   * Reusable lanyard vectors
    */
 
   const curvePoint =
@@ -564,6 +1531,8 @@ async function start() {
 
   function updateLanyardGeometry() {
     updateLanyardPoints()
+
+    lanyardCurve.updateArcLengths()
 
     camera.getWorldDirection(
       cameraForward
@@ -593,7 +1562,8 @@ async function start() {
       )
 
       if (
-        ribbonSide.lengthSq() < 0.000001
+        ribbonSide.lengthSq() <
+        0.000001
       ) {
         ribbonSide.set(1, 0, 0)
       }
@@ -649,7 +1619,7 @@ async function start() {
   updateLanyardGeometry()
 
   /*
-   * Mouse and touch dragging
+   * Pointer dragging
    */
 
   const raycaster =
@@ -753,7 +1723,9 @@ async function start() {
 
   renderer.domElement.addEventListener(
     'pointerdown',
-    event => {
+    (
+      event: PointerEvent
+    ) => {
       updatePointer(event)
 
       raycaster.setFromCamera(
@@ -763,18 +1735,21 @@ async function start() {
 
       const intersections =
         raycaster.intersectObject(
-          badge,
-          false
+          badgeAssembly,
+          true
         )
 
-      const hit = intersections[0]
+      const hit =
+        intersections[0]
 
       if (!hit) {
         return
       }
 
       dragging = true
-      activePointerId = event.pointerId
+
+      activePointerId =
+        event.pointerId
 
       renderer.domElement.setPointerCapture(
         event.pointerId
@@ -792,8 +1767,13 @@ async function start() {
         hit.point
       )
 
-      dragTarget.copy(hit.point)
-      previousDragTarget.copy(hit.point)
+      dragTarget.copy(
+        hit.point
+      )
+
+      previousDragTarget.copy(
+        hit.point
+      )
 
       previousDragTime =
         performance.now()
@@ -807,11 +1787,15 @@ async function start() {
         true
       )
 
-      badge.updateMatrixWorld(true)
+      badgeAssembly.updateMatrixWorld(
+        true
+      )
 
-      localHitPoint.copy(hit.point)
+      localHitPoint.copy(
+        hit.point
+      )
 
-      badge.worldToLocal(
+      badgeAssembly.worldToLocal(
         localHitPoint
       )
 
@@ -841,10 +1825,13 @@ async function start() {
 
   renderer.domElement.addEventListener(
     'pointermove',
-    event => {
+    (
+      event: PointerEvent
+    ) => {
       if (
         !dragging ||
-        event.pointerId !== activePointerId
+        event.pointerId !==
+          activePointerId
       ) {
         return
       }
@@ -909,7 +1896,8 @@ async function start() {
   ) {
     if (
       !dragging ||
-      event.pointerId !== activePointerId
+      event.pointerId !==
+        activePointerId
     ) {
       return
     }
@@ -951,7 +1939,7 @@ async function start() {
   )
 
   /*
-   * Resize handling
+   * Resize
    */
 
   function handleResize() {
@@ -1002,7 +1990,8 @@ async function start() {
     ) {
       world.step()
 
-      accumulator -= FIXED_TIMESTEP
+      accumulator -=
+        FIXED_TIMESTEP
     }
 
     const badgePosition =
@@ -1011,17 +2000,21 @@ async function start() {
     const badgeRotation =
       badgeBody.rotation()
 
-    badge.position.set(
+    badgeAssembly.position.set(
       badgePosition.x,
       badgePosition.y,
       badgePosition.z
     )
 
-    badge.quaternion.set(
+    badgeAssembly.quaternion.set(
       badgeRotation.x,
       badgeRotation.y,
       badgeRotation.z,
       badgeRotation.w
+    )
+
+    badgeAssembly.updateMatrixWorld(
+      true
     )
 
     updateLanyardGeometry()
